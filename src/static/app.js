@@ -21,7 +21,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const spotsLeft = details.max_participants - details.participants.length;
 
         const participantsList = details.participants
-          .map(participant => `<li>${participant}</li>`)
+          .map(participant => `
+            <li>
+              <span>${participant}</span>
+              <button class="delete-participant" data-activity="${name}" data-email="${participant}" title="Remove participant">✕</button>
+            </li>
+          `)
           .join('');
 
         activityCard.innerHTML = `
@@ -36,6 +41,42 @@ document.addEventListener("DOMContentLoaded", () => {
             </ul>
           </div>
         `;
+
+        // Add delete event listeners
+        activityCard.querySelectorAll('.delete-participant').forEach(button => {
+          button.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const activity = e.target.dataset.activity;
+            const email = e.target.dataset.email;
+
+            try {
+              const response = await fetch(
+                `/activities/${encodeURIComponent(activity)}/signoff?email=${encodeURIComponent(email)}`,
+                { method: 'POST' }
+              );
+
+              if (response.ok) {
+                messageDiv.textContent = `Removed ${email} from ${activity}`;
+                messageDiv.className = 'success';
+                messageDiv.classList.remove('hidden');
+                setTimeout(() => {
+                  messageDiv.classList.add('hidden');
+                }, 5000);
+                fetchActivities();
+              } else {
+                const result = await response.json();
+                messageDiv.textContent = result.detail || 'Failed to remove participant';
+                messageDiv.className = 'error';
+                messageDiv.classList.remove('hidden');
+              }
+            } catch (error) {
+              messageDiv.textContent = 'Error removing participant';
+              messageDiv.className = 'error';
+              messageDiv.classList.remove('hidden');
+              console.error('Error:', error);
+            }
+          });
+        });
 
         activitiesList.appendChild(activityCard);
 
@@ -72,6 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
